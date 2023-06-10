@@ -20,29 +20,41 @@ const run = async () => {
         // Connect the client to the server	(optional starting in v4.7)
         client.connect();
 
-        const summnerSchoolData = client.db("summer_school").collection("fakeData");
-        const summnerSchoolUser = client.db("summer_school").collection("users");
+        const schoolUser = client.db("summer_school").collection("users");
+        const schoolClass = client.db("summer_school").collection("Class");
 
-        app.get('/fakeData', async (req, res) => {
-            const result = await summnerSchoolData.find().toArray();
-            res.send(result);
-        });
 
+        //-------- School users --------
         app.post('/users', async (req, res) => {
             const user = req.body;
+            user.user_type = "student";
             const query = { email: user.email };
-            const existingUser = await summnerSchoolUser.findOne(query);
+            const existingUser = await schoolUser.findOne(query);
             if (existingUser) {
                 return res.send({ message: 'user already exists' })
             };
-            const result = await summnerSchoolUser.insertOne(user);
+            const result = await schoolUser.insertOne(user);
             res.send(result);
         });
 
         app.get('/users', async (req, res) => {
-            const result = await summnerSchoolUser.find().toArray();
+            const result = await schoolUser.find().toArray();
             res.send(result);
         });
+
+        //-------- School Class --------
+        app.post('/class', async (req, res) => {
+            const classInfo = req.body;
+            const result = await schoolClass.insertOne(classInfo);
+            res.send(result);
+        });
+
+        app.get('/class', async (req, res) => {
+            const result = await schoolClass.find().toArray();
+            res.send(result);
+        });
+
+
 
         // Send a ping to confirm a successful connection
         client.db("admin").command({ ping: 1 });
