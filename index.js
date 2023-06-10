@@ -10,8 +10,6 @@ const port = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 
-
-
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.ehpilc7.mongodb.net/?retryWrites=true&w=majority`;
 
 // Create a MongoClient with a MongoClientOptions object to set the Stable API version
@@ -23,9 +21,26 @@ const run = async () => {
         client.connect();
 
         const summnerSchoolData = client.db("summer_school").collection("fakeData");
+        const summnerSchoolUser = client.db("summer_school").collection("users");
 
         app.get('/fakeData', async (req, res) => {
             const result = await summnerSchoolData.find().toArray();
+            res.send(result);
+        });
+
+        app.post('/users', async (req, res) => {
+            const user = req.body;
+            const query = { email: user.email };
+            const existingUser = await summnerSchoolUser.findOne(query);
+            if (existingUser) {
+                return res.send({ message: 'user already exists' })
+            };
+            const result = await summnerSchoolUser.insertOne(user);
+            res.send(result);
+        });
+
+        app.get('/users', async (req, res) => {
+            const result = await summnerSchoolUser.find().toArray();
             res.send(result);
         });
 
