@@ -3,7 +3,7 @@ const app = express();
 const cors = require('cors');
 const jwt = require('jsonwebtoken');
 require('dotenv').config();
-const { MongoClient, ServerApiVersion } = require('mongodb');
+const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 
 const port = process.env.PORT || 3000;
 
@@ -70,6 +70,29 @@ const run = async () => {
             res.send(result);
         });
 
+        app.patch('/users/admin/:id', async (req, res) => {
+            const id = req.params.id;
+            const filter = { _id: new ObjectId(id) };
+            const updateDoc = { $set: { user_type: "admin" } };
+            const result = await schoolUser.updateOne(filter, updateDoc);
+            res.send(result);
+        });
+
+        app.patch('/users/instructor/:id', async (req, res) => {
+            const id = req.params.id;
+            const filter = { _id: new ObjectId(id) };
+            const updateDoc = { $set: { user_type: "instructor" } };
+            const result = await schoolUser.updateOne(filter, updateDoc);
+            res.send(result);
+        });
+
+        app.delete('/users/delete/:id', async (req, res) => {
+            const id = req.params.id;
+            const query = { _id: new ObjectId(id) };
+            const result = await schoolUser.deleteOne(query);
+            res.send(result);
+        });
+
         //-------- School Class --------
         app.post('/class', async (req, res) => {
             const classInfo = req.body;
@@ -86,12 +109,24 @@ const run = async () => {
             res.send(result);
         });
 
+        // class get (public)
         app.get('/class', async (req, res) => {
             const query = { status: "active" };
             const options = { projection: { name: 1, image: 1, insName: 1, duration: 1, seats: 1, price: 1 } };
             const result = await schoolClass.find(query, options).toArray();
             res.send(result);
         });
+
+        // instructro get (public)
+        app.get('/instructor', async (req, res) => {
+            const query = { user_type: "instructor" };
+            const options = { projection: { name: 1, img: 1, email: 1 } };
+            const result = await schoolUser.find(query, options).toArray();
+            res.send(result);
+        });
+
+
+
 
         //------------- user type -------------
         // app.get('user/type', async (req, res) => {
