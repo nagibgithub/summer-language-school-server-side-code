@@ -16,7 +16,7 @@ const verifyJWT = (req, res, next) => {
     if (!authorization) {
         return res.status(401).send({ error: true, message: 'unauthorized access' });
     }
-    // bearer token
+    
     const token = authorization.split(' ')[1];
 
     jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, decoded) => {
@@ -45,12 +45,46 @@ const run = async () => {
         const verifyAdmin = async (req, res, next) => {
             const email = req.decoded.email;
             const query = { email: email }
-            const user = await usersCollection.findOne(query);
-            if (user?.role !== 'admin') {
+            const user = await schoolUser.findOne(query);
+            if (user?.user_type !== 'admin') {
                 return res.status(403).send({ error: true, message: 'forbidden message' });
             }
             next();
         };
+
+        // veryfy instructor
+        const verifyInstructor = async (req, res, next) => {
+            const email = req.decoded.email;
+            const query = { email: email }
+            const user = await schoolUser.findOne(query);
+            if (user?.user_type !== 'instructor') {
+                return res.status(403).send({ error: true, message: 'forbidden message' });
+            }
+            next();
+        };
+        //----------- JWT post -----------
+        app.post('/jwt', (req, res) => {
+            const user = req.body;
+            const code = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, { expiresIn: '1h' });
+            res.send({ code });
+        });
+
+        //------------------- useAdmin -------------------
+        app.get('/users/type/:email', verifyJWT, async (req, res) => {
+            const email = req.params.email;
+
+            if (req.decoded.email !== email) {
+                res.send({ user: false })
+            }
+
+            const query = { email: email }
+            const user = await schoolUser.findOne(query);
+            const result = { user_type: user?.user_type }
+            res.send(result);
+        })
+
+
+
 
         //-------- School users --------
         app.post('/users', async (req, res) => {
@@ -65,7 +99,7 @@ const run = async () => {
             res.send(result);
         });
 
-        app.get('/users', async (req, res) => {
+        app.get('/users', verifyJWT, verifyAdmin, async (req, res) => {
             const result = await schoolUser.find().toArray();
             res.send(result);
         });
@@ -93,7 +127,7 @@ const run = async () => {
             res.send(result);
         });
 
-        //-------- School Class --------
+        //-------- Classes --------
         app.post('/class', async (req, res) => {
             const classInfo = req.body;
             classInfo.status = 'pending';
@@ -101,17 +135,79 @@ const run = async () => {
             res.send(result);
         });
 
-        app.get('/instructor/class', async (req, res) => {
-            const instructorEmail = req.query.email;
-            const query = { email: instructorEmail };
+        app.get('/class/admin', verifyJWT, verifyAdmin, async (req, res) => {
+            const result = await schoolClass.find().toArray();
+            res.send(result);
+        });
+
+        // app.get('/class/instructor', verifyJWT, verifyInstructor, async (req, res)=>{
+
+        //     const query = {}
+        //     const result = await schoolClass.find().toArray();
+        //     res.send(result);
+        // });
+
+        app.patch('/class/approved/:id', async (req, res) => {
+            const id = req.params.id;
+            const filter = { _id: new ObjectId(id) };
+            const updateDoc = { $set: { status: "approved" } };
+            const result = await schoolClass.updateOne(filter, updateDoc);
+            res.send(result);
+        });
+
+        app.patch('/class/deny/:id', async (req, res) => {
+            const id = req.params.id;
+            const filter = { _id: new ObjectId(id) };
+            const updateDoc = { $set: { status: "deny" } };
+            const result = await schoolClass.updateOne(filter, updateDoc);
+            res.send(result);
+        });
+
+        app.patch('/class/update/:id', async (req, res) => {
+            const classId = req.params.id;
+            const classUpdateData = req.body;
+            const filter = { _id: new ObjectId(classId) };
+            const updateDoc = {
+                $set: {
+                    name: classUpdateData.name,
+                    duration: classUpdateData.duration,
+                    seats: classUpdateData.seats,
+                    price: classUpdateData.price,
+                    description: classUpdateData.description
+                },
+            };
+            const result = await schoolClass.updateOne(filter, updateDoc);
+            res.send(result);
+        });
+
+        app.patch('/class/feedback/:id', async (req, res) => {
+            const id = req.params.id;
+            const bodyData = req.body;
+            const filter = { _id: new ObjectId(id) };
+            const updateDoc = { $set: { feedback: bodyData.feedback } };
+            const result = await schoolClass.updateOne(filter, updateDoc);
+            res.send(result);
+        });
+
+        app.get('/instructor/class', verifyJWT, verifyInstructor, async (req, res) => {
+            const email = req.decoded.email;
+            const query = { email: email }
             const option = {};
             const result = await schoolClass.find(query, option).toArray();
             res.send(result);
         });
 
+        app.get('/class/update/:id', async (req, res) => {
+            const classId = req.params.id;
+            const query = { _id: new ObjectId(classId) };
+            const options = { projection: { name: 1, duration: 1, seats: 1, price: 1, description: 1 } }
+            const result = await schoolClass.findOne(query, options);
+            res.send(result);
+        });
+
         // class get (public)
         app.get('/class', async (req, res) => {
-            const query = { status: "active" };
+            const query = { status: "approved" };
             const options = { projection: { name: 1, image: 1, insName: 1, duration: 1, seats: 1, price: 1 } };
             const result = await schoolClass.find(query, options).toArray();
             res.send(result);
@@ -125,13 +221,11 @@ const run = async () => {
             res.send(result);
         });
 
-
-
-
-        //------------- user type -------------
-        // app.get('user/type', async (req, res) => {
-        //     const userEmail = req.query.
-        // });
+        // all classes nor secure
+        app.get('/all_classes', async (req, res) => {
+            const result = await schoolClass.find().toArray();
+            res.send(result);
+        });
 
 
 
