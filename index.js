@@ -63,6 +63,21 @@ const run = async () => {
             }
             next();
         };
+
+        // veryfy student
+        const verifyStudent = async (req, res, next) => {
+            const email = req.decoded.email;
+            const query = { email: email }
+            const user = await schoolUser.findOne(query);
+            if (user?.user_type !== 'student') {
+                return res.status(403).send({ error: true, message: 'forbidden message' });
+            }
+            next();
+        };
+
+
+
+
         //----------- JWT post -----------
         app.post('/jwt', (req, res) => {
             const user = req.body;
@@ -209,17 +224,33 @@ const run = async () => {
 
 
         // Student class -------------
+        app.get('/student/class/selected', verifyJWT, verifyStudent, async (req, res) => {
+            const email = req.decoded.email;
+            const query = { email: email }
+            const option = {};
+            const result = await schoolStudent.find(query, option).toArray();
+            res.send(result);
+        });
+
         app.post('/student/class', async (req, res) => {
             const studentClass = req.body;
-            const classID = studentClass.classId;
-            const query = { classId: classID };
-            const existingStuClass = await schoolStudent.findOne(query);
-            if (existingStuClass) {
-                return res.send({ message: 'student class already exists' })
+            const queryEmail = { email: studentClass.email };
+            const existingStuClass = await schoolStudent.find(queryEmail).toArray();
+            const findClass = existingStuClass.find(pd => pd.classId == studentClass.classId);
+            if (findClass) {
+                return res.send({ message: 'Class Already selected' })
             };
-
             studentClass.status = 'payment due';
             const result = await schoolStudent.insertOne(studentClass);
+            res.send(result);
+        });
+
+        // get individual class (public)
+        app.get('/class/student/:id', verifyJWT, verifyStudent, async (req, res) => {
+            const classId = req.params.id;
+            const query = { _id: new ObjectId(classId) };
+            const options = { projection: { name: 1, image: 1, insName: 1, seats: 1, email: 1, duration: 1, price: 1, } }
+            const result = await schoolClass.findOne(query, options);
             res.send(result);
         });
 
@@ -243,6 +274,13 @@ const run = async () => {
             const result = await schoolClass.find(query, options).toArray();
             res.send(result);
         });
+
+
+
+
+
+
+
         app.get('/class/all', async (req, res) => {
             const query = { status: "approved" };
             const options = {
@@ -261,7 +299,15 @@ const run = async () => {
             res.send(result);
         });
 
-        // all classes not secure
+
+
+        // get student class not secure -----------------
+        app.get('/students/all', async (req, res) => {
+            const result = await schoolStudent.find().toArray();
+            res.send(result);
+        });
+
+        // all classes not secure -----------------
         app.get('/all_classes', async (req, res) => {
             const result = await schoolClass.find().toArray();
             res.send(result);
