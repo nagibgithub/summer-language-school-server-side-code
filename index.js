@@ -16,7 +16,7 @@ const verifyJWT = (req, res, next) => {
     if (!authorization) {
         return res.status(401).send({ error: true, message: 'unauthorized access' });
     }
-    
+
     const token = authorization.split(' ')[1];
 
     jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, decoded) => {
@@ -40,6 +40,7 @@ const run = async () => {
 
         const schoolUser = client.db("summer_school").collection("users");
         const schoolClass = client.db("summer_school").collection("class");
+        const schoolStudent = client.db("summer_school").collection("student");
 
         // veryfy admin
         const verifyAdmin = async (req, res, next) => {
@@ -205,10 +206,49 @@ const run = async () => {
             res.send(result);
         });
 
+
+
+        // Student class -------------
+        app.post('/student/class', async (req, res) => {
+            const studentClass = req.body;
+            const classID = studentClass.classId;
+            const query = { classId: classID };
+            const existingStuClass = await schoolStudent.findOne(query);
+            if (existingStuClass) {
+                return res.send({ message: 'student class already exists' })
+            };
+
+            studentClass.status = 'payment due';
+            const result = await schoolStudent.insertOne(studentClass);
+            res.send(result);
+        });
+
+
+
+
+
+
+
+
+
+
         // class get (public)
-        app.get('/class', async (req, res) => {
+        app.get('/class/top', async (req, res) => {
             const query = { status: "approved" };
-            const options = { projection: { name: 1, image: 1, insName: 1, duration: 1, seats: 1, price: 1 } };
+            const options = {
+                sort: { enroll: -1 },
+                limit: 6,
+                projection: { name: 1, image: 1, insName: 1, duration: 1, seats: 1, price: 1 }
+            };
+            const result = await schoolClass.find(query, options).toArray();
+            res.send(result);
+        });
+        app.get('/class/all', async (req, res) => {
+            const query = { status: "approved" };
+            const options = {
+                sort: { enroll: -1 },
+                projection: { name: 1, image: 1, insName: 1, duration: 1, seats: 1, price: 1, description: 1 }
+            };
             const result = await schoolClass.find(query, options).toArray();
             res.send(result);
         });
@@ -216,15 +256,24 @@ const run = async () => {
         // instructro get (public)
         app.get('/instructor', async (req, res) => {
             const query = { user_type: "instructor" };
-            const options = { projection: { name: 1, img: 1, email: 1 } };
+            const options = { projection: { name: 1, img: 1, email: 1 }, limit: 6 };
             const result = await schoolUser.find(query, options).toArray();
             res.send(result);
         });
 
-        // all classes nor secure
+        // all classes not secure
         app.get('/all_classes', async (req, res) => {
             const result = await schoolClass.find().toArray();
             res.send(result);
+        });
+
+        // find user_type
+        app.get('/user_type/:email', async (req, res) => {
+            const userEmail = req.params.email;
+            const query = { email: userEmail };
+            const result = await schoolUser.findOne(query);
+            const userType = { type: result.user_type };
+            res.send(userType);
         });
 
 
