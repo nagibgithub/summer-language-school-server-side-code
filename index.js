@@ -3,6 +3,7 @@ const app = express();
 const cors = require('cors');
 const jwt = require('jsonwebtoken');
 require('dotenv').config();
+const stripe = require('stripe')(process.env.PAYMENT_SECRET_KEY)
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 
 const port = process.env.PORT || 3000;
@@ -77,7 +78,7 @@ const run = async () => {
 
 
 
-        
+
 
 
         //----------- JWT post -----------
@@ -100,6 +101,57 @@ const run = async () => {
             const result = { user_type: user?.user_type }
             res.send(result);
         })
+
+
+
+
+
+
+
+// payment options
+
+app.post('/create-payment-intent', verifyJWT, async (req, res) => {
+    const { price } = req.body;
+    const amount = parseInt(price * 100);
+    const paymentIntent = await stripe.paymentIntents.create({
+      amount: amount,
+      currency: 'usd',
+      payment_method_types: ['card']
+    });
+
+    res.send({
+      clientSecret: paymentIntent.client_secret
+    })
+  });
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -247,11 +299,19 @@ const run = async () => {
             res.send(result);
         });
 
+
+        app.delete('/student/class/:id', async (req, res) => {
+            const id = req.params.id;
+            const query = { _id: new ObjectId(id) };
+            const result = await schoolStudent.deleteOne(query);
+            res.send(result);
+        });
+
         // get individual class (public)
-        app.get('/class/student/:id', verifyJWT, verifyStudent, async (req, res) => {
+        app.get('/class/student/:id', async (req, res) => {
             const classId = req.params.id;
             const query = { _id: new ObjectId(classId) };
-            const options = { projection: { name: 1, image: 1, insName: 1, seats: 1, email: 1, duration: 1, price: 1, } }
+            const options = {}
             const result = await schoolClass.findOne(query, options);
             res.send(result);
         });
