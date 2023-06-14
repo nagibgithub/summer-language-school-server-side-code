@@ -42,6 +42,7 @@ const run = async () => {
         const schoolUser = client.db("summer_school").collection("users");
         const schoolClass = client.db("summer_school").collection("class");
         const schoolStudent = client.db("summer_school").collection("student");
+        const studentPayment = client.db("summer_school").collection("payment");
 
         // veryfy admin
         const verifyAdmin = async (req, res, next) => {
@@ -108,22 +109,39 @@ const run = async () => {
 
 
 
-// payment options
+        // payment options
 
-app.post('/create-payment-intent', verifyJWT, async (req, res) => {
-    const { price } = req.body;
-    const amount = parseInt(price * 100);
-    const paymentIntent = await stripe.paymentIntents.create({
-      amount: amount,
-      currency: 'usd',
-      payment_method_types: ['card']
-    });
+        app.post('/create-payment-intent', verifyJWT, async (req, res) => {
+            const { price } = req.body;
+            const amount = parseInt(price * 100);
+            const paymentIntent = await stripe.paymentIntents.create({
+                amount: amount,
+                currency: 'usd',
+                payment_method_types: ['card']
+            });
 
-    res.send({
-      clientSecret: paymentIntent.client_secret
-    })
-  });
+            res.send({
+                clientSecret: paymentIntent.client_secret
+            })
+        });
 
+        app.post('/payments', verifyJWT, async (req, res) => {
+            const payment = req.body;
+            const insertResult = await studentPayment.insertOne(payment);
+
+            const query = { _id: { $in: payment.classID.map(id => new ObjectId(id)) } };
+            const deleteResult = await schoolStudent.deleteMany(query);
+
+            res.send({ insertResult, deleteResult });
+        });
+
+        app.get('/payments', verifyJWT, async (req, res) => {
+            const email = req.decoded.email;
+            const query = { email: email }
+            const option = { sort: { date: -1 } };
+            const result = await studentPayment.find(query, option).toArray();
+            res.send(result);
+        });
 
 
 
@@ -196,6 +214,22 @@ app.post('/create-payment-intent', verifyJWT, async (req, res) => {
             const result = await schoolUser.deleteOne(query);
             res.send(result);
         });
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
         //-------- Classes --------
         app.post('/class', async (req, res) => {
